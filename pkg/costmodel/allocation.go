@@ -33,7 +33,20 @@ func (cm *CostModel) ComputeAllocation(start, end time.Time) (*opencost.Allocati
 
 	// If the duration is short enough, compute the AllocationSet directly
 	if end.Sub(start) <= cm.BatchDuration {
+		if cm.AllocationCache != nil {
+			if cached, ok := cm.AllocationCache.Get(start, end); ok {
+				return cached, nil
+			}
+		}
+
 		as, _, err := cm.computeAllocation(start, end)
+
+		if err == nil && cm.AllocationCache != nil {
+			if cacheErr := cm.AllocationCache.Put(as); cacheErr != nil {
+				log.Warnf("AllocationCache: failed to cache %s: %v", opencost.NewClosedWindow(start, end), cacheErr)
+			}
+		}
+
 		return as, err
 	}
 
@@ -60,10 +73,26 @@ func (cm *CostModel) ComputeAllocation(start, end time.Time) (*opencost.Allocati
 		// Set start and end parameters (s, e) for next individual computation.
 		e = s.Add(duration)
 
+		// Check the allocation cache for completed days
+		if cm.AllocationCache != nil {
+			if cached, ok := cm.AllocationCache.Get(s, e); ok {
+				asr.Append(cached)
+				s = e
+				continue
+			}
+		}
+
 		// Compute the individual AllocationSet for just (s, e)
 		as, _, err := cm.computeAllocation(s, e)
 		if err != nil {
 			return opencost.NewAllocationSet(start, end), fmt.Errorf("error computing allocation for %s: %s", opencost.NewClosedWindow(s, e), err)
+		}
+
+		// Cache completed days to disk
+		if cm.AllocationCache != nil {
+			if cacheErr := cm.AllocationCache.Put(as); cacheErr != nil {
+				log.Warnf("AllocationCache: failed to cache %s: %v", opencost.NewClosedWindow(s, e), cacheErr)
+			}
 		}
 
 		// Append to the range

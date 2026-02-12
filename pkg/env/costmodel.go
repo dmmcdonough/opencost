@@ -101,6 +101,11 @@ const (
 
 	// Metrics Emitter
 	MetricsEmitterQueryWindowEnvVar = "METRICS_EMITTER_QUERY_WINDOW"
+
+	// Allocation Cache
+	AllocationCacheEnabledEnvVar       = "ALLOCATION_CACHE_ENABLED"
+	AllocationCacheRetentionDaysEnvVar = "ALLOCATION_CACHE_RETENTION_DAYS"
+	AllocationCachePathEnvVar          = "ALLOCATION_CACHE_PATH"
 )
 
 func GetGCPAuthSecretFilePath() string {
@@ -410,6 +415,26 @@ func IsMCPServerEnabled() bool {
 // the HTTP port for the MCP server.
 func GetMCPHTTPPort() int {
 	return env.GetInt(MCPHTTPPortEnvVar, 8081)
+}
+
+// IsAllocationCacheEnabled returns whether the allocation disk cache is enabled.
+func IsAllocationCacheEnabled() bool {
+	return env.GetBool(AllocationCacheEnabledEnvVar, true)
+}
+
+// GetAllocationCacheRetentionDays returns the number of days to retain cached allocation data.
+func GetAllocationCacheRetentionDays() int {
+	return env.GetInt(AllocationCacheRetentionDaysEnvVar, 90)
+}
+
+// GetAllocationCachePath returns the override path for the allocation cache directory.
+// If empty, defaults to {CONFIG_PATH}/db/allocation.
+func GetAllocationCachePath() string {
+	p := env.Get(AllocationCachePathEnvVar, "")
+	if p != "" {
+		return p
+	}
+	return env.GetPathFromConfig("db", "allocation")
 }
 
 // GetMetricsEmitterQueryWindow returns the time window for the metrics emitter

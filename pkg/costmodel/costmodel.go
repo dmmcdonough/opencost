@@ -21,6 +21,7 @@ import (
 	"github.com/opencost/opencost/core/pkg/util"
 	"github.com/opencost/opencost/core/pkg/util/promutil"
 	costAnalyzerCloud "github.com/opencost/opencost/pkg/cloud/models"
+	"github.com/opencost/opencost/pkg/env"
 	km "github.com/opencost/opencost/pkg/kubemodel"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,7 @@ type CostModel struct {
 	Provider        costAnalyzerCloud.Provider
 	KubeModel       *km.KubeModel
 	pricingMetadata *costAnalyzerCloud.PricingMatchMetadata
+	AllocationCache *AllocationCache
 }
 
 func NewCostModel(
@@ -74,14 +76,26 @@ func NewCostModel(
 		}
 	}
 
+	var allocCache *AllocationCache
+	if env.IsAllocationCacheEnabled() {
+		cachePath := env.GetAllocationCachePath()
+		retentionDays := env.GetAllocationCacheRetentionDays()
+		retention := time.Duration(retentionDays) * 24 * time.Hour
+		allocCache = NewAllocationCache(cachePath, retention)
+		if err := allocCache.Load(); err != nil {
+			log.Warnf("AllocationCache: failed to load from disk: %v", err)
+		}
+	}
+
 	return &CostModel{
-		Cache:         cache,
-		ClusterMap:    clusterMap,
-		BatchDuration: batchDuration,
-		DataSource:    dataSource,
-		Provider:      provider,
-		RequestGroup:  requestGroup,
-		KubeModel:     kubeModel,
+		Cache:           cache,
+		ClusterMap:      clusterMap,
+		BatchDuration:   batchDuration,
+		DataSource:      dataSource,
+		Provider:        provider,
+		RequestGroup:    requestGroup,
+		KubeModel:       kubeModel,
+		AllocationCache: allocCache,
 	}
 }
 
