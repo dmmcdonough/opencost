@@ -23,3 +23,6 @@ tilt_config.json
 # Test reports
 coverage.html
 coverage.out
+
+# Local build scripts
+build-and-push.sh
